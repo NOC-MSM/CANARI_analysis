@@ -1,6 +1,6 @@
 # CANARI_diagnostics
 
-A public repository for developing and sharing code for diagnosing data from observations and models in the CANARI project (https:www.canari.ac.uk).
+A public repository for developing and sharing code for diagnosing data from observations and models in the CANARI project (https://www.canari.ac.uk).
 
 This CANARI sub-project code repository, "CANARI_diagnostics" is open to suggested changes (philosophical, structural, stylistic, ...) and was initialised simply to aid collaboration.
 
