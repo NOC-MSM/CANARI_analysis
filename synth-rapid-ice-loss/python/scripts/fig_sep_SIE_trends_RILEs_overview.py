@@ -44,13 +44,57 @@ mpl.rcParams["figure.dpi"] *= 3
 #
 # TODO: create some sort of framework in repository to handle data inputs/paths?
 #
-data_path        = Path("..", "data")
+data_path        = Path("..", "..", "data")
 data_file_le     = Path(data_path, "cle_sie_pan-Arctic_r1-40_1950-2099.npy")
 data_file_c6     = Path(data_path, "cmip6_sie_pan-Arctic_20m_1850-2100.pickle")
 data_file_ob_esa = Path(data_path, "seaice/esa_cci_l4/ESA_CCI_L4_Sept_SIE.nc")
 data_file_ob_had = Path(data_path, "seaice/hadisst/HadISST_SIE.nc")
 data_file_ob_sbt = Path(data_path, "seaice/ssmi/gn/siextent_bt_nh_gn_sep_1979-2024.nc")
 data_file_ob_snt = Path(data_path, "seaice/ssmi/gn/siextent_nt_nh_gn_sep_1979-2024.nc")
+
+
+def moving_average(t, x, n_step=5):
+    """Compute the n_step moving average of x as a function of time t.
+
+
+    Parameters
+    ----------
+    t : 1D array (nt,) of float
+        The nt time coordinates.
+
+    x : 2D array (nt, nx) of float
+        The nx time series datasets [e.g., nx ensemble members each of time-length nt].
+
+
+    Optional parameters
+    -------------------
+    n_step : int, default = 5
+        The length of the moving window to compute averages (means) over expressed as an
+        integer number of steps/indices of t. Must have nt >= n_step.
+
+
+    Returns
+    -------
+    t_ma : 1D array (nt - n_step + 1,) of float
+        Time coordinates at the centre of the moving average windows.
+
+    x_ma : 2D array (nt - n_step + 1, nx) of float
+        Moving average of x as a function of t_ma for each dataset.
+
+    """
+
+    nt, nx = np.shape(x)
+
+    nt_ma = nt - n_step + 1
+
+    t_ma = np.zeros( nt_ma)
+    x_ma = np.zeros((nt_ma,nx))
+
+    for k in range(nt_ma):
+        t_ma[k]   = np.mean(t[k:k+n_step])
+        x_ma[k,:] = np.mean(x[k:k+n_step,:], axis=0)
+
+    return t_ma, x_ma
 
 
 def trend_time_series(t, x, n_step=5):
@@ -269,6 +313,7 @@ def main():
     prsr.add_argument("--month"                        , type=int  , default=9)
     prsr.add_argument("-m", "--m-years-below-threshold", type=int  , default=4)
     prsr.add_argument("-n", "--n-years-trend"          , type=int  , default=5)
+    prsr.add_argument("-a", "--n-years-moving_average" , type=int  , default=5)
     prsr.add_argument("-t", "--rile-threshold"         , type=float, default=-.3)
     prsr.add_argument("-i", "--ifree-threshold"        , type=float, default=1.)
     prsr.add_argument("-c", "--color-le"               , type=str  , default="tab:orange")
@@ -277,6 +322,7 @@ def main():
 
     # Prepare common keywords for data processing functions defined at
     # the top of the script, used in the same way for different datasets:
+    movav_kw = {"n_step"   : cmd.n_years_moving_average}
     trend_kw = {"n_step"   : cmd.n_years_trend}
     riles_kw = {"threshold": cmd.rile_threshold, "n_step": cmd.m_years_below_threshold}
     ifree_kw = {"threshold": cmd.ifree_threshold}
@@ -304,9 +350,12 @@ def main():
 
     ny_le, ne_le = np.shape(sie_le)
 
+    # Calculate moving average:
+    yr_le_ma, sie_le_ma = moving_average(yr_le, sie_le, **movav_kw)
+
     # Calculate trend time series:
     yr_trend_le, sie_trend_le, sie_trend_err_le = \
-        trend_time_series(yr_le, sie_le, **trend_kw)
+        trend_time_series(yr_le_ma, sie_le_ma, **trend_kw)
 
     # Calculate RILE occurrences:
     yr_riles_le, riles_le = get_riles(yr_trend_le, sie_trend_le, **riles_kw)
@@ -340,9 +389,12 @@ def main():
     nm_c6 = len(models_c6)
     ne_c6 = np.array([len(members_c6[m]) for m in range(nm_c6)])
 
+    # Calculate moving average:
+    yr_c6_ma, sie_c6_ma = moving_average(yr_c6, sie_c6, **movav_kw)
+
     # Calculate trend time series, RILE occurrence, and ice-free onset:
     yr_trend_c6, sie_trend_c6, sie_trend_err_c6 = \
-        trend_time_series(yr_c6, sie_c6, **trend_kw)
+        trend_time_series(yr_c6_ma, sie_c6_ma, **trend_kw)
 
     yr_riles_c6, riles_c6 = get_riles(yr_trend_c6, sie_trend_c6, **riles_kw)
 
@@ -381,10 +433,13 @@ def main():
             # Raw year range is 1978 to 2024 inclusive (so remove first two years):
             sie_ob[:,j] = np.array(ncdat.variables["siextent"][2:]) * 1.e-12
 
-    # Calculate moving trends (we do not calculate RILEs because there is not enough
-    # data, and we do not calculate ice free conditions because it hasn't happened yet:
+    # Calculate moving average and trends (we do not calculate RILEs because there is
+    # not enough data, and we do not calculate ice free conditions because it hasn't
+    # happened yet:
+    yr_ob_ma, sie_ob_ma = moving_average(yr_ob, sie_ob, **movav_kw)
+
     yr_trend_ob, sie_trend_ob, sie_trend_err_ob = \
-        trend_time_series(yr_ob, sie_ob, **trend_kw)
+        trend_time_series(yr_ob_ma, sie_ob_ma, **trend_kw)
 
 
     # ======================= #
@@ -418,12 +473,6 @@ def main():
     plot_ensemble(axs[0,1], yr_trend_c6, sie_trend_c6, color=color_c6)
     plot_ensemble(axs[0,1], yr_trend_le, sie_trend_le, color=color_le, members=[j_le_show-1])
     plot_ensemble(axs[0,1], yr_trend_ob, sie_trend_ob, color=color_ob, alpha=.5, p=[0,100])
-
-    # For the highlighted LE member, show also the uncertainty range in the trend:
-    for x in [1., -1.]:
-        axs[0,1].plot(yr_trend_le, (sie_trend_le + x*sie_trend_err_le)[:,j_le_show-1],
-                      color=color_le, linestyle="--",
-                      linewidth=.5*mpl.rcParams["lines.linewidth"]/2)
 
     axs[0,1].axhline(cmd.rile_threshold, linestyle="--", color="tab:grey")
     axs[0,1].set_ylim(-0.9, 0.3)
@@ -537,6 +586,7 @@ def main():
 
     if cmd.save_fig:
         fig.savefig(f"cle_cmip6_{calendar.month_abbr[cmd.month].lower()}_riles_"
+                    + f"n{cmd.n_years_moving_average}_"
                     + f"N{cmd.n_years_trend}_M{cmd.m_years_below_threshold}_"
                     + f"T{str(cmd.rile_threshold).replace('.','p')}.png",
                     dpi=300)
