@@ -72,7 +72,7 @@ python/
 ├── README.md
 │
 ├── notebooks/
-│   └── SWMBB_ANOVA_CANARI_LE.ipynb
+│   └── SWMBB_ANOVA_CANARI_LE.ipynb [demonstrating functionality]
 │
 ├── scripts/
 │
