@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ensemble-stats"
+version = "0.1.0"
+
+description = "Sliding-window moving-block-bootstrap ANOVA tools for hierarchical ensemble analysis"
+
+readme = "README.md"
+
+requires-python = ">=3.10"
+
+authors = [
+  { name = "Chris Wilson (cwi@noc.ac.uk)" }
+]
+
+license = { text = "MIT" }
+
+dependencies = [
+  "numpy",
+  "pandas",
+  "xarray",
+  "matplotlib",
+  "scipy",
+  "statsmodels",
+  "scikit-learn",
+  "cftime",
+]
+
+keywords = [
+  "climate",
+  "statistics",
+  "bootstrap",
+  "anova",
+  "ensemble",
+  "xarray",
+]
+
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Topic :: Scientific/Engineering",
+]
+
+[project.optional-dependencies]
+
+dev = [
+  "pytest",
+  "pytest-cov",
+  "black",
+  "ruff",
+  "mypy",
+]
+
+docs = [
+  "sphinx",
+  "myst-parser",
+  "sphinx-rtd-theme",
+]
+
+notebooks = [
+  "jupyterlab",
+  "notebook",
+  "ipykernel",
+]
+
+io = [
+  "netcdf4",
+  "h5netcdf",
+  "zarr",
+  "dask",
+  "bottleneck",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
