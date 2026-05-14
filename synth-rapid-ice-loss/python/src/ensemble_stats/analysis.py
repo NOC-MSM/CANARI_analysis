@@ -442,14 +442,22 @@ def moving_block_bootstrap_indices(n, block_length, rng=None):
 
 
 def compute_block_statistics_anova_numpy(g_block):
+    
     r"""
     Fast NumPy implementation of ANOVA decomposition.
 
     Parameters
     ----------
     g_block : ndarray
-        Array with shape (j, k, t)
-
+        NumPy array with shape:
+    
+            (j, k, t)
+    
+        where:
+            axis 0 = parent group
+            axis 1 = child member
+            axis 2 = time
+            
     Returns
     -------
     dict
@@ -475,8 +483,6 @@ def compute_block_statistics_anova_numpy(g_block):
     ----------
     g_block : xarray.DataArray
         Input data block.
-    j_dim, k_dim, t_dim : str, optional
-        Names of spatial and temporal dimensions.
 
     Returns
     -------
@@ -860,20 +866,31 @@ def compute_block_statistics_anova_numpy(g_block):
     
         g = μ + α + β + γ + ε
     """
-
     # ------------------------------------------------------
     # Mean structure
     # ------------------------------------------------------
 
     mu = np.mean(g_block)
 
+    # ------------------------------------------------------
     # alpha(t)
+    # grand ensemble temporal anomaly
+    # ------------------------------------------------------
+
     alpha = np.mean(g_block, axis=(0, 1)) - mu
 
+    # ------------------------------------------------------
     # beta(j)
+    # persistent group offset
+    # ------------------------------------------------------
+
     beta = np.mean(g_block, axis=(1, 2)) - mu
 
+    # ------------------------------------------------------
     # gamma(j,t)
+    # group-dependent temporal evolution
+    # ------------------------------------------------------
+
     g_tj = np.mean(g_block, axis=1)
 
     gamma = (
@@ -894,7 +911,11 @@ def compute_block_statistics_anova_numpy(g_block):
         - gamma.mean(axis=0, keepdims=True)
     )
 
+    # ------------------------------------------------------
     # epsilon(j,k,t)
+    # residual internal variability
+    # ------------------------------------------------------
+
     epsilon = (
         g_block
         - mu
@@ -904,79 +925,133 @@ def compute_block_statistics_anova_numpy(g_block):
     )
 
     # ------------------------------------------------------
-    # Summary statistics
+    # Temporal summary statistics
     # ------------------------------------------------------
 
-    alpha_mean = np.mean(alpha)
+    alpha_time_mean = np.mean(alpha)
 
-    gamma_mean = np.mean(gamma, axis=1)
+    gamma_time_mean = np.mean(
+        gamma,
+        axis=1,
+    )
 
-    epsilon_mean = np.mean(epsilon, axis=2)
+    epsilon_time_mean = np.mean(
+        epsilon,
+        axis=2,
+    )
 
-    alpha_var = np.var(alpha, ddof=1)
+    alpha_time_var = np.var(
+        alpha,
+        ddof=1,
+    )
 
-    gamma_var = np.var(gamma, axis=1, ddof=1)
+    gamma_time_var = np.var(
+        gamma,
+        axis=1,
+        ddof=1,
+    )
 
-    epsilon_var = np.var(epsilon, axis=2, ddof=1)
+    epsilon_time_var = np.var(
+        epsilon,
+        axis=2,
+        ddof=1,
+    )
 
-    total_var = np.var(g_block, axis=2, ddof=1)
+    total_time_var = np.var(
+        g_block,
+        axis=2,
+        ddof=1,
+    )
 
     # ------------------------------------------------------
     # Predictable-fraction diagnostics
     # ------------------------------------------------------
 
     # Expand dimensions for broadcasting
-    alpha_2d = alpha_var * np.ones_like(total_var)
+    alpha_2d = (
+        alpha_time_var
+        * np.ones_like(total_time_var)
+    )
 
-    gamma_2d = gamma_var[:, None]
+    gamma_2d = gamma_time_var[:, None]
 
-    # Fraction of total variance associated with:
-    #
-    # alpha     : grand forced signal
-    # gamma     : group/macroscopic response
-    # epsilon   : internal variability
-    # pred      : total potentially predictable variance
-    #
-    # Exact closure:
-    #
-    # F_alpha + F_gamma + F_epsilon = 1
-    #
-    # modulo floating-point precision.
+    # ------------------------------------------------------
+    # Fractional variance decomposition
+    # ------------------------------------------------------
 
-    F_alpha = alpha_2d / total_var
+    F_alpha = (
+        alpha_2d
+        / total_time_var
+    )
 
-    F_gamma = gamma_2d / total_var
+    F_gamma = (
+        gamma_2d
+        / total_time_var
+    )
 
-    F_epsilon = epsilon_var / total_var
+    F_epsilon = (
+        epsilon_time_var
+        / total_time_var
+    )
 
     F_pred = (
         alpha_2d + gamma_2d
-    ) / total_var
+    ) / total_time_var
+
+    # ------------------------------------------------------
+    # Return diagnostics
+    # ------------------------------------------------------
 
     return {
+
+        # --------------------------------------------------
+        # Full decomposition fields
+        # --------------------------------------------------
+
         "mu": mu,
 
-        "alpha_mean": alpha_mean,
-        "alpha_var": alpha_var,
-
-        "gamma_mean": gamma_mean,
-        "gamma_var": gamma_var,
-
-        "epsilon_mean": epsilon_mean,
-        "epsilon_var": epsilon_var,
+        "alpha": alpha,
 
         "beta": beta,
 
-        "total_var": total_var,
+        "gamma": gamma,
 
-        # Predictable fractions
+        "epsilon": epsilon,
+
+        # --------------------------------------------------
+        # Temporal means
+        # --------------------------------------------------
+
+        "alpha_time_mean": alpha_time_mean,
+
+        "gamma_time_mean": gamma_time_mean,
+
+        "epsilon_time_mean": epsilon_time_mean,
+
+        # --------------------------------------------------
+        # Temporal variances
+        # --------------------------------------------------
+
+        "alpha_time_var": alpha_time_var,
+
+        "gamma_time_var": gamma_time_var,
+
+        "epsilon_time_var": epsilon_time_var,
+
+        "total_time_var": total_time_var,
+
+        # --------------------------------------------------
+        # Fractional variance diagnostics
+        # --------------------------------------------------
+
         "F_alpha": F_alpha,
+
         "F_gamma": F_gamma,
+
         "F_epsilon": F_epsilon,
+
         "F_pred": F_pred,
     }
-
-
 
 def sliding_window_MBB_ensemble_analysis(
     g,

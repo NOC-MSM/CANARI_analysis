@@ -475,9 +475,9 @@ def plot_member_spaghetti(g, j_dim="j", k_dim="k", t_dim="t", alpha=0.2):
 
     for j in g[j_dim].values:
         for k in g[k_dim].values:
-            g.sel({j_dim: j, k_dim: k}).plot(ax=ax, alpha=alpha, color="gray")
+            g.sel({j_dim: j, k_dim: k}).plot(ax=ax, alpha=alpha, color="blue")
 
-    g.mean(dim=[j_dim, k_dim]).plot(ax=ax, linewidth=3, label="Ensemble mean")
+    g.mean(dim=[j_dim, k_dim]).plot(ax=ax, linewidth=3, label="Ensemble mean", color="gray")
     ax.legend()
     ax.set_title("Ensemble member spaghetti plot")
 

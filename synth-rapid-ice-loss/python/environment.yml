@@ -30,3 +30,4 @@ dependencies:
   - twine
   - pytest-cov
   - python-build
+  - plotly
