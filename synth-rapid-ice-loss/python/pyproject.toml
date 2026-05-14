@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ensemble-stats"
-version = "0.1.0"
+version = "0.1.1"
 
 description = "Sliding-window moving-block-bootstrap ANOVA tools for hierarchical ensemble analysis"
 
