@@ -49,8 +49,8 @@ data_file_le     = Path(data_path, "cle_sie_pan-Arctic_r1-40_1950-2099.npy")
 data_file_c6     = Path(data_path, "cmip6_sie_pan-Arctic_20m_1850-2100.pickle")
 data_file_ob_esa = Path(data_path, "seaice/esa_cci_l4/ESA_CCI_L4_Sept_SIE.nc")
 data_file_ob_had = Path(data_path, "seaice/hadisst/HadISST_SIE.nc")
-data_file_ob_sbt = Path(data_path, "seaice/ssmi/gn/siextent_bt_nh_gn_sep_1979-2024.nc")
-data_file_ob_snt = Path(data_path, "seaice/ssmi/gn/siextent_nt_nh_gn_sep_1979-2024.nc")
+data_file_ob_sbt = Path(data_path, "seaice/ssmi/gn/siextent_bt_nh_gn_sep_1979-2025.nc")
+data_file_ob_snt = Path(data_path, "seaice/ssmi/gn/siextent_nt_nh_gn_sep_1979-2025.nc")
 
 
 def moving_average(t, x, n_step=5):
@@ -248,7 +248,8 @@ def get_year_ice_free(year, sie, threshold=1., n_step=5):
 
 
 def plot_ensemble(ax, xdata, ydata, color="k", alpha=.25, label=None, p=[10,90],
-                  percentiles=True, mean=False, minmax=False, members=None):
+                  percentiles=True, mean=False, minmax=False, members=None,
+                  members_labels=None):
     """Function to plot a (set of) dataset(s) on some existing axes with various choices
     of what statistic(s) to display.
 
@@ -287,11 +288,15 @@ def plot_ensemble(ax, xdata, ydata, color="k", alpha=.25, label=None, p=[10,90],
     members : list of int or None (default)
         If a list of int, plot lines for each of the specific datasets at these indices.
 
+    members_labels : list of str or of None (default: None)
+        Labels for each specific line at the indices of 'members' (for legends if added
+        later).
+
     """
 
     if percentiles:
         ax.fill_between(xdata, *np.percentile(ydata, p, axis=1),
-                        facecolor=color, alpha=alpha)
+                        facecolor=color, alpha=alpha, label=None if mean else label)
 
     if mean:
         ax.plot(xdata, np.mean(ydata, axis=1), color=color, label=label)
@@ -303,7 +308,12 @@ def plot_ensemble(ax, xdata, ydata, color="k", alpha=.25, label=None, p=[10,90],
                 linewidth=.5*mpl.rcParams["lines.linewidth"])
 
     if members is not None:
-        ax.plot(xdata, ydata[:,members], color=color)
+        if members_labels is None:
+            members_labels = [None for j in range(len(members))]
+        elif len(members_labels) != len(members):
+            raise ValueError(f"{len(members)} members to plot but {len(members_labels)} labels")
+
+        ax.plot(xdata, ydata[:,members], color=color, label=members_labels)
 
 
 def main():
@@ -365,6 +375,16 @@ def main():
     for e in range(ne_le):
         yr_sif_le[e] = get_year_ice_free(yr_le, sie_le[:,e], **ifree_kw)
 
+    # Table text file output listing RILEs in the CANARI-LE:
+    table = "    ".join(["r ", "n_rile", "start year(s)"]) + "\n"
+    for j in range(ne_le):
+        table += f"{j+1:<2}    "
+        table += f"{np.sum(riles_le[:,j]):<6}    "
+        table += ", ".join(["%i" % (y-1.5) for y in yr_riles_le[riles_le[:,j]]]) + "\n"
+    table += "\n"
+
+    with open("riles_canari-le.txt", "w") as txtfile:
+        txtfile.write(table)
 
     # ========================= #
     # ---- Load CMIP6 data ---- #
@@ -413,24 +433,24 @@ def main():
     ne_ob = 4    # there are four observational datasets
 
     # Observations are in different sources, but combine all four into one array:
-    yr_ob  = np.arange(1980, 2025, 1)      # common time period for all
+    yr_ob  = np.arange(1980, 2026, 1)      # common time period for all
     ny_ob = len(yr_ob)
     sie_ob = np.zeros((ny_ob, ne_ob))
 
     # ---- ESA CCI:
     with nc.Dataset(data_file_ob_esa, "r") as ncdat:
-        # Raw year range is 1980 to 2025 inclusive (so need to remove last year):
-        sie_ob[:,0] = np.array(ncdat.variables["sept_SIE"][:-1]) * 1.e-6
+        # Raw year range is 1980 to 2025 inclusive:
+        sie_ob[:,0] = np.array(ncdat.variables["sept_SIE"][:]) * 1.e-6
 
     # ---- HadISST:
     with nc.Dataset(data_file_ob_had, "r") as ncdat:
-        # Raw year range is 1980 to 2025 inclusive (so need to remove last year):
-        sie_ob[:,1] = np.array(ncdat.variables["HadISST_sept_SIE"][:-1]) * 1.e-6
+        # Raw year range is 1980 to 2025 inclusive:
+        sie_ob[:,1] = np.array(ncdat.variables["HadISST_sept_SIE"][:]) * 1.e-6
 
     # ---- SSM/I NASA Team and Bootstrap:
     for j, data_file in zip([2,3], [data_file_ob_sbt, data_file_ob_snt]):
         with nc.Dataset(data_file, "r") as ncdat:
-            # Raw year range is 1978 to 2024 inclusive (so remove first two years):
+            # Raw year range is 1978 to 2025 inclusive (so remove first two years):
             sie_ob[:,j] = np.array(ncdat.variables["siextent"][2:]) * 1.e-12
 
     # Calculate moving average and trends (we do not calculate RILEs because there is
@@ -451,21 +471,22 @@ def main():
 
     # (a) Time series
     # ---------------
-    plot_ensemble(axs[0,0], yr_c6, sie_c6, color=color_c6)
-    plot_ensemble(axs[0,0], yr_le, sie_le, color=color_le, members=[j_le_show-1])
-    plot_ensemble(axs[0,0], yr_ob, sie_ob, color=color_ob, alpha=.5, p=[0,100])
+    plot_ensemble(axs[0,0], yr_c6, sie_c6, color=color_c6, label="CMIP6")
+    plot_ensemble(axs[0,0], yr_le, sie_le, color=color_le, label="CANARI-LE",
+                  members=[j_le_show-1], members_labels=[f"Member {j_le_show}"])
+    plot_ensemble(axs[0,0], yr_ob, sie_ob, color=color_ob, alpha=.5, p=[0,100],
+                  label="Observations")
 
     axs[0,0].axhline(cmd.ifree_threshold, linestyle="--", color="tab:grey")
     axs[0,0].set_ylim(0,10)
     axs[0,0].yaxis.set_major_locator(mpl.ticker.MaxNLocator(nbins=5, integer=True))
 
-    # In-line labels for LE highlighted member and ice-free threshold
-    # (hard-code positions, for now):
-    axs[0,0].annotate(r"$r=%i$" % j_le_show, (2025, .5), xycoords="data",
-                      fontsize="x-small", color=color_le, va="center", ha="right")
-
+    # In-line label for ice-free threshold (hard-code positions, for now):
     axs[0,0].annotate(r"Ice free", (1953, 1.4), xycoords="data", fontsize="x-small",
                       color="tab:grey", fontstyle="italic", va="center", ha="left")
+
+    # Regular legend for other plot elements:
+    axs[0,0].legend(fontsize="xx-small", frameon=False, labelspacing=.1)
 
 
     # (b) Trend time series
