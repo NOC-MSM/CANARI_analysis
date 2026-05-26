@@ -1,7 +1,11 @@
 # Changelog:
-# 
-# 11 May 2026: Chris Wilson - first release version.
-#
+ 
+# 11 May 2026: v0.1.0 - Chris Wilson - first release version.
+ 
+# 14 May 2026: v0.1.1 - Chris Wilson - bugfixes and extra plots in the notebook.
+
+# 26 May 2026: v0.2 - Chris Wilson - bugfixes and tidying.
+
 # OpenAI ChatGPT was used to assist with aspects of code development and refinement.
 
 import numpy as np

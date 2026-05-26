@@ -4,7 +4,21 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ensemble-stats"
+version = "0.1.2"
+
+description = "Sliding-window moving-block-bootstrap ANOVA tools for hierarchical ensemble analysis"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ensemble-stats"
+<<<<<<< HEAD
 version = "0.1.1"
+=======
+version = "0.1.2"
+>>>>>>> 9bd10b6 (Various bugfixes and updates to plotting.py)
 
 description = "Sliding-window moving-block-bootstrap ANOVA tools for hierarchical ensemble analysis"
 

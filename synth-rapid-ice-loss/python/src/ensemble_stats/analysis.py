@@ -1,8 +1,13 @@
 # Changelog:
-# 
-# 11 May 2026: Chris Wilson - first release version.
-#
+ 
+# 11 May 2026: v0.1.0 - Chris Wilson - first release version.
+ 
+# 14 May 2026: v0.1.1 - Chris Wilson - bugfixes and extra plots in the notebook.
+
+# 26 May 2026: v0.2 - Chris Wilson - bugfixes and tidying.
+
 # OpenAI ChatGPT was used to assist with aspects of code development and refinement.
+
 
 import numpy as np
 import pandas as pd
@@ -1053,243 +1058,34 @@ def compute_block_statistics_anova_numpy(g_block):
         "F_pred": F_pred,
     }
 
+
 def sliding_window_MBB_ensemble_analysis(
     g,
     j_dim="j",
     k_dim="k",
-    t_dim="t",
+    t_dim="time",
     window_length=None,
     bootstrap=True,
     n_boot=200,
     block_length=None,
     random_seed=123,
-    store_bootstrap_samples=False):
+    store_bootstrap_samples=False,
+):
+    # ----------------------------------------------------------
+    # Prevent excessive RAM use when storing bootstrap samples
+    # ----------------------------------------------------------
+    if store_bootstrap_samples and n_boot > 20:
 
-    """
-    Sliding-window moving-block-bootstrap ensemble analysis.
-
-    Fast NumPy-based implementation of the ANOVA framework.
-    
-    Perform sliding-window ensemble statistical analysis with optional
-    moving-block bootstrap uncertainty estimation.
-
-    We further embed this statistical analysis over the structure of
-    an ensemble of timeseries with hierarchical nested structure, such as
-    a single-model large ensemble (SMILE) with parent (macro) and 
-    child (micro) initial condition ensemble 
-    or 
-    a multi-model ensemble with parent (model) and child (micro I.C. members).
+        raise ValueError(
+            "The current version of this function only permits "
+            "store_bootstrap_samples=True if n_boot is 20 or less, "
+            "to prevent excessive use of RAM and kernel instability. "  
+            "A future version might include an option to store on disk."
+        )
 
 
-    If bootstrap=False, only the central estimator of the statistic is computed
-    over a sliding temporal window, for each of the timeseries in j_dim, k_dim.
-
-    If bootstrap=True, moving-block bootstrap (MBB) resampling
-    is applied along the temporal dimension within each sliding
-    window in order to estimate the empirical sampling distribution
-    of the statistic under temporally correlated variability.
-    The hierarchical ensemble structure (j_dim, k_dim) is preserved
-    exactly during resampling.
-    
-    The statistic could be, e.g. variance, mean or linear trend parameters.
-
-    Sliding-window MBB is used so that a moderately non-stationary timeseries 
-    can be characterised.  Standard MBB assumes stationarity within the window.
-
-    
-    Parameters
-    ----------
-    g : xarray.DataArray
-        Input ensemble dataset.
-    j_dim, k_dim, t_dim : str, optional
-        Names of ensemble (parent group (j), child member (k)) 
-        and temporal dimensions.  
-        e.g. j may refer to macro and k to micro initial condition
-        ensemble member dimensions.
-    window_length : int
-        sliding-window length in samples.
-    bootstrap : bool, optional
-        If True, estimate confidence intervals via bootstrap.
-    n_boot : int, optional
-        Number of bootstrap resamples.
-    block_length : int, optional
-        Moving-block bootstrap block length.
-    random_seed : int, optional
-        Random seed for reproducibility.
-    store_bootstrap_samples : bool, optional
-        If True, retain full bootstrap realizations for each statistic.
-        This allows statistically consistent uncertainty propagation
-        for nonlinear derived quantities (e.g. ratios or variance fractions).
-
-    Returns
-    -------
-    xarray.Dataset
-        Dataset containing sliding statistics and optional
-        bootstrap confidence intervals.
-
-        FULL TIME SERIES
-    ───────────────────────────────────────────────────────────────► t
-    
-    x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x
-    
-    
-    ================================================================
-    STEP 1: SLIDING WINDOW
-    ================================================================
-    
-                    ┌─────────────────────┐
-                    │   sliding window    │
-                    └─────────────────────┘
-    x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x
-              ^                                         ^
-            start                                      end
-    
-    
-    Within this window:
-    
-        g_win = g[t_start : t_end]
-    
-    
-    Compute CENTRAL ESTIMATOR from ORIGINAL data:
-    
-        θ̂ = statistic(g_win)
-    
-    Examples:
-        mean
-        variance
-        trend slope
-        ANOVA variance components
-        ensemble statistics
-    
-    
-    ================================================================
-    STEP 2: MOVING BLOCK BOOTSTRAP INSIDE WINDOW
-    ================================================================
-    
-    Original window:
-    
-    t:   0 1 2 3 4 5 6 7 8 9
-         ───────────────────
-    x = [a b c d e f g h i j]
-    
-    
-    Choose contiguous blocks of length L:
-    
-    Block 1:
-            [c d e]
-    
-    Block 2:
-                  [f g h]
-    
-    Block 3:
-        [a b c]
-    
-    Block 4:
-                      [h i j]
-    
-    
-    Concatenate sampled blocks:
-    
-    [c d e] + [f g h] + [a b c] + [h i j]
-          ↓
-    [c d e f g h a b c h]
-    
-    
-    Truncate to original length if needed:
-    
-    [c d e f g h a b c h]
-    
-    
-    This forms ONE bootstrap realization:
-    
-        g_boot^(1)
-    
-    
-    Repeat many times:
-    
-        g_boot^(1)
-        g_boot^(2)
-        g_boot^(3)
-        ...
-        g_boot^(N)
-    
-    
-    ================================================================
-    STEP 3: BOOTSTRAP DISTRIBUTION
-    ================================================================
-    
-    For each bootstrap realization:
-    
-        θ̂*(1) = statistic(g_boot^(1))
-        θ̂*(2) = statistic(g_boot^(2))
-        ...
-        θ̂*(N)
-    
-    
-    Build empirical sampling distribution:
-    
-                    ^
-                    |
-    frequency       |                         *
-                    |                      *  *
-                    |                   *  *  *  *
-                    |                *  *  *  *  *
-                    |             *  *  *  *  *  *
-                    +------------------------------------► θ
-    
-                        lower      θ̂      upper
-                         2.5%               97.5%
-    
-    
-    Where:
-    
-        θ̂      = central estimator from original window
-        lower   = bootstrap CI lower bound
-        upper   = bootstrap CI upper bound
-    
-    
-    ================================================================
-    STEP 4: SLIDE WINDOW FORWARD
-    ================================================================
-    
-    Window position t:
-    
-            ┌─────────────────────┐
-    x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x
-    
-    
-    Window position t+1:
-    
-              ┌─────────────────────┐
-    x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x
-    
-    
-    Repeat:
-        central estimate
-        bootstrap resampling
-        confidence intervals
-    
-    
-    ================================================================
-    FINAL OUTPUT
-    ================================================================
-    
-    time ─────────────────────────────────────────────────────►
-    
-    central estimate:
-            ●────●────●────●────●────●────●
-    
-    95% confidence interval:
-           ╱│╲  ╱│╲  ╱│╲  ╱│╲  ╱│╲  ╱│╲
-          ╱ │ ╲╱ │ ╲╱ │ ╲╱ │ ╲╱ │ ╲╱ │ ╲
-    
-    Each point:
-        ● = statistic from original sliding window
-    
-    Each envelope:
-        CI estimated from moving-block bootstrap
-
-    """
+    import numpy as np
+    import xarray as xr
 
     # ----------------------------------------------------------
     # Validate dimensions
@@ -1314,6 +1110,15 @@ def sliding_window_MBB_ensemble_analysis(
     # ----------------------------------------------------------
     # Window setup
     # ----------------------------------------------------------
+    if window_length is None:
+        raise ValueError("window_length must be specified")
+
+    if window_length % 2 == 0:
+        raise ValueError(
+            "window_length must be odd so that the "
+            "window has a unique center time."
+        )
+
     half_window = window_length // 2
 
     nt = g.sizes[t_dim]
@@ -1327,15 +1132,15 @@ def sliding_window_MBB_ensemble_analysis(
     # ----------------------------------------------------------
     # Main sliding-window loop
     # ----------------------------------------------------------
-    for it in range(nt):
+    for it in range(half_window, nt - half_window):
 
-        start = max(0, it - half_window)
+        start = it - half_window
 
-        end = min(nt, it + half_window + 1)
+        end = it + half_window + 1
 
         # ------------------------------------------------------
         # Extract NumPy window
-        # Shape: (j, k, t)
+        # Shape: (j, k, window_time)
         # ------------------------------------------------------
         g_win = g_values[:, :, start:end]
 
@@ -1360,6 +1165,8 @@ def sliding_window_MBB_ensemble_analysis(
                 for key in stats.keys()
             }
 
+            
+
             n_t = g_win.shape[2]
 
             effective_block_length = (
@@ -1379,7 +1186,9 @@ def sliding_window_MBB_ensemble_analysis(
                     rng=rng,
                 )
 
+                # --------------------------------------------------
                 # Resample only along time dimension
+                # --------------------------------------------------
                 g_boot = g_win[:, :, t_idx]
 
                 boot_stats = (
@@ -1387,26 +1196,18 @@ def sliding_window_MBB_ensemble_analysis(
                         g_boot
                     )
                 )
-                
-                for key, value in boot_stats.items():
 
+                for key, value in boot_stats.items():
+                
                     boot_results[key].append(value)
+                
 
             # --------------------------------------------------
-            # Confidence intervals + optional storage
+            # Store bootstrap diagnostics
             # --------------------------------------------------
             for key, values in boot_results.items():
 
-                # Shape:
-                # scalar statistic:
-                #   (n_boot,)
-                #
-                # j statistic:
-                #   (n_boot, j)
-                #
-                # jk statistic:
-                #   (n_boot, j, k)
-                arr = np.stack(values)
+                arr = np.stack(values).astype(np.float32)
 
                 # ----------------------------------------------
                 # Optionally retain full bootstrap ensemble
@@ -1443,116 +1244,157 @@ def sliding_window_MBB_ensemble_analysis(
                     [],
                 ).append(upper)
 
+        # ------------------------------------------------------
+        # Store centered output time
+        # ------------------------------------------------------
         output_times.append(
             g[t_dim].values[it]
         )
 
-    # ----------------------------------------------------------
-    # Convert accumulated results back to xarray
-    # ----------------------------------------------------------
+    # ==========================================================
+    # Convert accumulated results to xarray
+    # ==========================================================
     data_vars = {}
 
     boot_coord = np.arange(n_boot)
 
+    j_coord = g[j_dim].values
+
+    k_coord = g[k_dim].values
+
+    window_coord = np.arange(window_length)
+
+    # ----------------------------------------------------------
+    # Explicit dimension map
+    # ----------------------------------------------------------
+    dim_map = {
+
+        # ------------------------------------------------------
+        # Full decomposition fields
+        # ------------------------------------------------------
+        "mu": [],
+
+        "alpha": ["window_time"],
+
+        "beta": [j_dim],
+
+        "gamma": [j_dim, "window_time"],
+
+        "epsilon": [j_dim, k_dim, "window_time"],
+
+        # ------------------------------------------------------
+        # Temporal means
+        # ------------------------------------------------------
+        "alpha_time_mean": [],
+
+        "gamma_time_mean": [j_dim],
+
+        "epsilon_time_mean": [j_dim, k_dim],
+
+        # ------------------------------------------------------
+        # Temporal variances
+        # ------------------------------------------------------
+        "alpha_time_var": [],
+
+        "gamma_time_var": [j_dim],
+
+        "epsilon_time_var": [j_dim, k_dim],
+
+        "total_time_var": [j_dim, k_dim],
+
+        # ------------------------------------------------------
+        # Fractional variance diagnostics
+        # ------------------------------------------------------
+        "F_alpha": [j_dim, k_dim],
+
+        "F_gamma": [j_dim, k_dim],
+
+        "F_epsilon": [j_dim, k_dim],
+
+        "F_pred": [j_dim, k_dim],
+    }
+
+    # ----------------------------------------------------------
+    # Build variables
+    # ----------------------------------------------------------
     for key, values in results.items():
 
         arr = np.stack(values)
+
+        # ------------------------------------------------------
+        # Detect bootstrap variables
+        # ------------------------------------------------------
+        # ------------------------------------------------------
+        # Detect derived variable type
+        # ------------------------------------------------------
+        is_boot = key.endswith("_boot")
+        
+        is_ci_lower = key.endswith("_ci_lower")
+        
+        is_ci_upper = key.endswith("_ci_upper")
+        
+        # ------------------------------------------------------
+        # Recover underlying base variable name
+        # ------------------------------------------------------
+        if is_boot:
+        
+            base_key = key[:-5]
+        
+        elif is_ci_lower:
+        
+            base_key = key[:-9]
+        
+        elif is_ci_upper:
+        
+            base_key = key[:-9]
+        
+        else:
+        
+            base_key = key
+
+        if base_key not in dim_map:
+
+            raise ValueError(
+                f"Unknown variable: {base_key}"
+            )
+
+        var_dims = dim_map[base_key]
+
+        dims = [t_dim]
 
         coords = {
             t_dim: output_times
         }
 
         # ------------------------------------------------------
-        # Bootstrap samples
+        # Add bootstrap dimension
         # ------------------------------------------------------
-        if key.endswith("_boot"):
+        if is_boot:
 
-            # ----------------------------------------------
-            # scalar bootstrap statistics
-            # arr shape: (time, boot)
-            # ----------------------------------------------
-            if arr.ndim == 2:
+            dims.append("boot")
 
-                dims = [t_dim, "boot"]
-
-                coords["boot"] = boot_coord
-
-            # ----------------------------------------------
-            # j statistics
-            # arr shape: (time, boot, j)
-            # ----------------------------------------------
-            elif arr.ndim == 3:
-
-                dims = [t_dim, "boot", j_dim]
-
-                coords["boot"] = boot_coord
-
-                coords[j_dim] = g[j_dim]
-
-            # ----------------------------------------------
-            # jk statistics
-            # arr shape: (time, boot, j, k)
-            # ----------------------------------------------
-            elif arr.ndim == 4:
-
-                dims = [
-                    t_dim,
-                    "boot",
-                    j_dim,
-                    k_dim,
-                ]
-
-                coords["boot"] = boot_coord
-
-                coords[j_dim] = g[j_dim]
-
-                coords[k_dim] = g[k_dim]
-
-            else:
-
-                raise ValueError(
-                    f"{key}: unsupported ndim {arr.ndim}"
-                )
+            coords["boot"] = boot_coord
 
         # ------------------------------------------------------
-        # Standard statistics
+        # Add variable-specific dimensions
         # ------------------------------------------------------
-        else:
+        dims.extend(var_dims)
 
-            # scalar statistic
-            # arr shape: (time,)
-            if arr.ndim == 1:
+        if j_dim in var_dims:
 
-                dims = [t_dim]
+            coords[j_dim] = j_coord
 
-            # j statistic
-            # arr shape: (time, j)
-            elif arr.ndim == 2:
+        if k_dim in var_dims:
 
-                dims = [t_dim, j_dim]
+            coords[k_dim] = k_coord
 
-                coords[j_dim] = g[j_dim]
+        if "window_time" in var_dims:
 
-            # jk statistic
-            # arr shape: (time, j, k)
-            elif arr.ndim == 3:
+            coords["window_time"] = window_coord
 
-                dims = [
-                    t_dim,
-                    j_dim,
-                    k_dim,
-                ]
-
-                coords[j_dim] = g[j_dim]
-
-                coords[k_dim] = g[k_dim]
-
-            else:
-
-                raise ValueError(
-                    f"{key}: unsupported ndim {arr.ndim}"
-                )
-
+        # ------------------------------------------------------
+        # Create DataArray
+        # ------------------------------------------------------
         data_vars[key] = xr.DataArray(
             arr,
             dims=dims,
@@ -1569,7 +1411,11 @@ def sliding_window_MBB_ensemble_analysis(
     # ----------------------------------------------------------
     ds.attrs["window_length"] = int(window_length)
 
-    ds.attrs["block_length"] = int(block_length)
+    ds.attrs["block_length"] = (
+        None
+        if block_length is None
+        else int(block_length)
+    )
 
     ds.attrs["bootstrap"] = bool(bootstrap)
 

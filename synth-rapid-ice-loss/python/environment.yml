@@ -1,4 +1,4 @@
-name: anova_xarray_env
+name: ensemble-stats
 channels:
   - conda-forge
 dependencies:
@@ -31,3 +31,5 @@ dependencies:
   - pytest-cov
   - python-build
   - plotly
+  - scikit-learn
+  - nc-time-axis
