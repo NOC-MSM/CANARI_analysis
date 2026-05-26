@@ -12,6 +12,16 @@ The package currently includes:
 
 The code was developed for analysis of Arctic sea-ice predictability within the CANARI project.
 
+Changelog for this notebook and accompanying ensemble_stats package:
+
+11 May 2026: v0.1.0 - Chris Wilson - first release version.
+
+14 May 2026: v0.1.1 - Chris Wilson - bugfixes and extra plots in this notebook.
+
+26 May 2026: v0.2 - Chris Wilson - bugfixes and tidying.
+
+OpenAI ChatGPT was used to assist with aspects of code development and refinement.
+
 ---
 
 # Installation
