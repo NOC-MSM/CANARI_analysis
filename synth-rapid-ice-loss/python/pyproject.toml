@@ -7,27 +7,11 @@ name = "ensemble-stats"
 version = "0.1.2"
 
 description = "Sliding-window moving-block-bootstrap ANOVA tools for hierarchical ensemble analysis"
-
-[build-system]
-requires = ["setuptools>=61"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "ensemble-stats"
-<<<<<<< HEAD
-version = "0.1.1"
-=======
-version = "0.1.2"
->>>>>>> 9bd10b6 (Various bugfixes and updates to plotting.py)
-
-description = "Sliding-window moving-block-bootstrap ANOVA tools for hierarchical ensemble analysis"
-
 readme = "README.md"
-
 requires-python = ">=3.10"
 
 authors = [
-  { name = "Chris Wilson (cwi@noc.ac.uk)" }
+  { name = "Chris Wilson", email = "cwi@noc.ac.uk" }
 ]
 
 license = { text = "MIT" }
@@ -61,7 +45,6 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-
 dev = [
   "pytest",
   "pytest-cov",

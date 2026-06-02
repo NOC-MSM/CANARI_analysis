@@ -1,35 +1,58 @@
 name: ensemble-stats
+
 channels:
   - conda-forge
+
 dependencies:
+  # Core
   - python=3.12
-  - scipy
-  - seaborn
-  - statsmodels
-  - ipykernel
-  - numba
-  - pandas
-  - matplotlib
-  - netcdf4
+  - pip
+
+  # Runtime dependencies
+  - numpy>=2.0
+  - pandas>=2.2
+  - scipy>=1.14
   - xarray
-  - jupyterlab
-  - numpy
-  - dask
+  - statsmodels
+  - scikit-learn
+  - matplotlib
+  - cftime
+
+  # Optional I/O support
+  - netcdf4
   - h5netcdf
   - zarr
-  - notebook
-  - cftime
+  - dask
   - bottleneck
+
+  # Notebook environment
+  - jupyterlab
+  - notebook
+  - ipykernel
+
+  # Documentation
+  - sphinx
   - myst-parser
+  - sphinx-rtd-theme
+
+  # Development and testing
+  - pytest
+  - pytest-cov
   - black
   - ruff
-  - sphinx-rtd-theme
   - mypy
-  - pytest
-  - sphinx
-  - twine
-  - pytest-cov
+
+  # Packaging and release
   - python-build
+  - twine
+
+  # Analysis and plotting utilities
+  - seaborn
   - plotly
-  - scikit-learn
   - nc-time-axis
+
+  # Optional performance
+  - numba
+
+  - pip:
+      - -e .
