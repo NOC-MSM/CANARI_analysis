@@ -20,11 +20,13 @@ Changelog for this notebook and accompanying ensemble_stats package:
 
 26 May 2026: v0.2 - Chris Wilson - bugfixes and tidying.
 
+2 June 2026: v0.2.1 - CW - fixed bug in pyproject.toml, tidied environment.yml, tidied notebook.
+
 OpenAI ChatGPT was used to assist with aspects of code development and refinement.
 
 ---
 
-# Installation
+## Installation
 
 Clone the repository:
 
@@ -38,22 +40,24 @@ Move to the package directory:
 cd CANARI_analysis/synth-rapid-ice-loss/python
 ```
 
-Create the conda environment:
+Create the Conda environment:
 
 ```bash
 conda env create -f environment.yml
 ```
 
+This installs all required dependencies and automatically installs the package in editable mode.
+
 Activate the environment:
 
 ```bash
-conda activate anova_xarray_env
+conda activate ensemble-stats
 ```
 
-Install the package in editable mode:
+Verify the installation:
 
 ```bash
-pip install -e .
+python -c "import ensemble_stats; print(ensemble_stats.__version__)"
 ```
 
 ---
@@ -82,9 +86,11 @@ python/
 ├── README.md
 │
 ├── notebooks/
-│   └── v0.2_SWMBB_ANOVA_CANARI_LE.ipynb [demonstrating functionality]
+│   ├── ANOVA_MBB_draft.ipynb
+│   └── v0.2.1_SWMBB_ANOVA_CANARI_LE.ipynb
 │
 ├── scripts/
+│   └── fig_sep_SIE_trends_RILEs_overview.py
 │
 ├── src/
 │   └── ensemble_stats/
@@ -104,10 +110,12 @@ python/
 
 Core statistical routines, including:
 
-- sliding-window moving-block-bootstrap analysis
+- sliding-window moving-block-bootstrap (SWMBB) analysis
 - hierarchical ANOVA decomposition
 - variance partitioning
 - signal-to-noise diagnostics
+- trend and seasonal-cycle removal
+- STL decomposition
 - preprocessing utilities
 
 ---
@@ -116,25 +124,26 @@ Core statistical routines, including:
 
 Synthetic hierarchical ensemble generators for testing and demonstration.
 
-Supports:
+Supports configurable synthetic ensemble generation, including:
+
 - nested ensemble structure `(j, k, t)`
 - seasonal cycles
-- AR(2) persistence
+- temporal persistence
 - macro-state variability
 - member variability
 - stochastic residual noise
-- 360-day calendars
 
 ---
 
 ## `ensemble_stats.plotting`
 
 Plotting utilities for:
+
 - ensemble spaghetti plots
 - ANOVA variance diagnostics
-- STL decomposition
-- confidence intervals
-- predictability metrics
+- STL decomposition visualisation
+- bootstrap confidence intervals
+- predictability and signal-to-noise diagnostics
 
 ---
 
@@ -143,7 +152,7 @@ Plotting utilities for:
 The primary demonstration notebook is:
 
 ```text
-notebooks/SWMBB_ANOVA_CANARI_LE.ipynb
+notebooks/v0.2_SWMBB_ANOVA_CANARI_LE.ipynb
 ```
 
 This notebook demonstrates:
@@ -164,23 +173,23 @@ It serves as the main worked example for the package.
 # Typical workflow
 
 ```python
-from ensemble_stats.synthetic import *
-from ensemble_stats.analysis import *
-from ensemble_stats.plotting import *
+import ensemble_stats as es
 
-# Generate synthetic ensemble
-g = generate_synthetic_nested_ensemble()
+# Generate a synthetic ensemble
+g = es.generate_synthetic_nested_ensemble(...)
 
 # Run SWMBB ANOVA analysis
-results = sliding_window_MBB_ensemble_analysis(
+results = es.sliding_window_MBB_ensemble_analysis(
     g,
-    window_length=240,
-    bootstrap=True,
+    ...
 )
 
 # Plot diagnostics
-plot_member_spaghetti(g)
+es.plot_member_spaghetti(g)
+es.plot_variance_decomposition_timeseries(results)
 ```
+
+See the demonstration notebook for a complete, reproducible example.
 
 ---
 
@@ -196,6 +205,8 @@ Main runtime dependencies include:
 - statsmodels
 - scikit-learn
 - cftime
+
+Additional development, documentation, notebook, and I/O dependencies are provided through `environment.yml`.
 
 ---
 
